@@ -35,20 +35,20 @@ extends:
         variables:
           releaseVersionWithPrefix: $[ stageDependencies.Build.Build.outputs['getReleaseVersionStep.releaseVersionWithPrefix'] ]
         jobs:
-        - job: CreateTag
-          steps:
-            - checkout: self
-              fetchDepth: 1
-              fetchTags: false
-              persistCredentials: true
+          - job: CreateTag
+            steps:
+              - checkout: self
+                fetchDepth: 1
+                fetchTags: false
+                persistCredentials: true
 
-            - script: |
-                git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
-                git config user.name "Azure Piplines"
-                git fetch --depth 1 origin $(Build.SourceBranchName)
-                git tag -a $(releaseVersionWithPrefix) -m "Release $(releaseVersionWithPrefix)" origin/$(Build.SourceBranchName)
-                git push origin $(releaseVersionWithPrefix)
-              displayName: Create git tag
+              - script: |
+                  git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+                  git config user.name "Azure Piplines"
+                  git fetch --depth 1 origin $(Build.SourceBranchName)
+                  git tag -a $(releaseVersionWithPrefix) -m "Release $(releaseVersionWithPrefix)" origin/$(Build.SourceBranchName)
+                  git push origin $(releaseVersionWithPrefix)
+                displayName: Create git tag
 
       - stage: CreateRelease
         displayName: Create GitHub Release
@@ -58,28 +58,28 @@ extends:
         variables:
           releaseVersionWithPrefix: $[ stageDependencies.Build.Build.outputs['getReleaseVersionStep.releaseVersionWithPrefix'] ]
         jobs:
-        - job: CreateRelease
-          templateContext:
-            type: releaseJob
-            isProduction: true
-            inputs:
-              - input: pipelineArtifact
-                artifactName: $(ARTIFACT_NAME_WHEEL)
-                targetPath: $(Build.StagingDirectory)/dist
-          steps:
-            - task: GitHubRelease@1 #https://learn.microsoft.com/en-us/azure/devops/pipelines/tasks/reference/github-release-v1?view=azure-pipelines
-              displayName: Create GitHub Release
+          - job: CreateRelease
+            templateContext:
+              type: releaseJob
+              isProduction: true
               inputs:
-                gitHubConnection: GitHub-sarif-tools
-                repositoryName: microsoft/sarif-tools
-                action: create
-                target: $(Build.SourceBranchName)
-                title: $(releaseVersionWithPrefix)
-                tag: $(releaseVersionWithPrefix)
-                tagSource: userSpecifiedTag
-                isDraft: true
-                addChangeLog: false
-                assets: $(Build.StagingDirectory)/dist/*
+                - input: pipelineArtifact
+                  artifactName: $(ARTIFACT_NAME_WHEEL)
+                  targetPath: $(Build.StagingDirectory)/dist
+            steps:
+              - task: GitHubRelease@1 #https://learn.microsoft.com/en-us/azure/devops/pipelines/tasks/reference/github-release-v1?view=azure-pipelines
+                displayName: Create GitHub Release
+                inputs:
+                  gitHubConnection: GitHub-sarif-tools
+                  repositoryName: microsoft/sarif-tools
+                  action: create
+                  target: $(Build.SourceBranchName)
+                  title: $(releaseVersionWithPrefix)
+                  tag: $(releaseVersionWithPrefix)
+                  tagSource: userSpecifiedTag
+                  isDraft: true
+                  addChangeLog: false
+                  assets: $(Build.StagingDirectory)/dist/*
 
       - stage: WaitForValidation
         dependsOn: CreateRelease
@@ -98,29 +98,29 @@ extends:
       - stage: Release
         dependsOn: WaitForValidation
         jobs:
-        - job: PublishToPyPi
-          displayName: Release to PyPi
+          - job: PublishToPyPi
+            displayName: Release to PyPi
 
-          pool:
-            name: VSEngSS-MicroBuild2022-1ES # This pool is required to have the certs needed to publish to PyPi using ESRP.
-            os: windows
-            image: server2022-microbuildVS2022-1es
+            pool:
+              name: VSEngSS-MicroBuild2022-1ES # This pool is required to have the certs needed to publish to PyPi using ESRP.
+              os: windows
+              image: server2022-microbuildVS2022-1es
 
-          templateContext:
-            type: releaseJob
-            isProduction: true
-            inputs:
-              - input: pipelineArtifact
-                artifactName: $(ARTIFACT_NAME_WHEEL)
-                targetPath: $(Build.StagingDirectory)/dist
+            templateContext:
+              type: releaseJob
+              isProduction: true
+              inputs:
+                - input: pipelineArtifact
+                  artifactName: $(ARTIFACT_NAME_WHEEL)
+                  targetPath: $(Build.StagingDirectory)/dist
 
-          steps:
-            - template: MicroBuild.Publish.yml@MicroBuildTemplate
-              parameters:
-                intent: PackageDistribution
-                contentType: PyPi
-                contentSource: Folder
-                folderLocation: $(Build.StagingDirectory)/dist
-                waitForReleaseCompletion: true
-                owners: erikd@microsoft.com
-                approvers: grwheele@microsoft.com
+            steps:
+              - template: MicroBuild.Publish.yml@MicroBuildTemplate
+                parameters:
+                  intent: PackageDistribution
+                  contentType: PyPi
+                  contentSource: Folder
+                  folderLocation: $(Build.StagingDirectory)/dist
+                  waitForReleaseCompletion: true
+                  owners: erikd@microsoft.com
+                  approvers: grwheele@microsoft.com
